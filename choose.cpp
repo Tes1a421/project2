@@ -1,0 +1,184 @@
+#include "choose.h"
+#include "ui_choose.h"
+#include "input.h"
+#include "xlsxdocument.h"
+#include "xlsxworkbook.h"
+#include <QDebug>
+#include <QFileInfo>
+#include <QDir>
+#include <QProcess>
+#include <cmath>
+#include "shareddata.h"
+#include "calc.h"
+
+struct ProcessEntry {
+    QString name;
+    int number;
+    QMap<QString, double> inputData;
+    QMap<QString, double> calculatedData;
+};
+QList<ProcessEntry> processEntries;
+
+CHOOSE::CHOOSE(QWidget *parent) :
+    QDialog(parent),
+    ui(new Ui::CHOOSE)
+{
+    ui->setupUi(this);
+
+    // 绑定所有按钮到统一槽
+    QList<QPushButton*> buttons = this->findChildren<QPushButton*>();
+    for (QPushButton *button : buttons) {
+        QString name = button->objectName();
+        if (name.contains("delete") || name.contains("pushButton_36") || name.contains("pushButton_35") || name.contains("pushButton_34")) {
+            continue;
+        }
+        connect(button, &QPushButton::clicked, this, &CHOOSE::onProcessButtonClicked);
+    }
+}
+
+CHOOSE::~CHOOSE()
+{
+    delete ui;
+}
+
+void CHOOSE::onProcessButtonClicked()
+{
+    QPushButton *button = qobject_cast<QPushButton*>(sender());
+    if (!button) return;
+
+    QString processName = button->text();
+    addProcess(processName);
+
+    INPUT *inputPage = new INPUT;
+    if (!processEntries.isEmpty()) {
+        const auto &lastCalculatedData = processEntries.last().calculatedData;
+        inputPage->setPreviousResults(lastCalculatedData);
+    }
+
+    connect(inputPage, &INPUT::dataEntered, this, [=](const QMap<QString, double> &data){
+        receivedata(data, processEntries.size() - 1);
+    });
+
+    inputPage->show();
+}
+
+void CHOOSE::addProcess(const QString &name)
+{
+    int index = SharedData::instance().processList.size();
+    int processNumber = (index + 1) * 10;
+    SharedData::instance().processList.append(qMakePair(name, processNumber));
+    ui->listWidget->addItem(QString("%1. %2").arg(processNumber).arg(name));
+}
+
+void CHOOSE::receivedata(const QMap<QString, double> &data, int index)
+{
+    if (index >= 0 && index < processEntries.size()) {
+        processEntries[index].inputData = data;
+        QMap<QString, double> combinedData = data;
+        if (index > 0) {
+            const auto &lastCalculatedData = processEntries[index - 1].calculatedData;
+            combinedData.unite(lastCalculatedData);
+        }
+        processEntries[index].calculatedData = calculateData(combinedData);
+
+        qDebug() << "收到输入数据：";
+        for (const QString &key : data.keys()) {
+            qDebug() << key << ": " << data[key];
+        }
+
+        qDebug() << "计算结果：";
+        for (const QString &key : processEntries[index].calculatedData.keys()) {
+            qDebug() << key << ": " << processEntries[index].calculatedData[key];
+        }
+    }
+}
+
+QMap<QString, double> CHOOSE::calculateData(const QMap<QString, double> &inputData)
+{
+    QMap<QString, double> result;
+
+    // 先计算 BF20–BF38（偶数行）
+    for (int row = 20; row <= 38; row += 2) {
+        QString key = QString("BF%1").arg(row);
+        result[key] = calcBFxx(row, inputData);
+    }
+
+    // 再计算 G19–G37（奇数行）
+    for (int row = 19; row <= 37; row += 2) {
+        QString key = QString("G%1").arg(row);
+        result[key] = calcGxx(row, result.unite(inputData)); // 需要包含 BF 值
+    }
+
+    return result;
+}
+
+double CHOOSE::calcBF20(const QMap<QString, double>& data, double BF19, double BF17, double previousG19)
+{
+    return pow(BF19 * previousG19, 2);
+}
+
+void CHOOSE::saveToExcel(const QString &filename)
+{
+    auto &inputs = SharedData::instance().inputDataList;
+    auto &results = SharedData::instance().calculatedResultList;
+    auto &processes = SharedData::instance().processList;
+
+    QXlsx::Document xlsx;
+
+    xlsx.write(1, 1, "序号");
+    xlsx.write(1, 2, "工序名称");
+    xlsx.write(1, 3, "输入数据");
+    xlsx.write(1, 4, "计算结果");
+
+    for (int i = 0; i < inputs.size(); ++i) {
+        xlsx.write(i + 2, 1, processes[i].second);
+        xlsx.write(i + 2, 2, processes[i].first);
+
+        QStringList inputList;
+        for (const QString &key : inputs[i].keys())
+            inputList << QString("%1: %2").arg(key).arg(inputs[i][key]);
+        xlsx.write(i + 2, 3, inputList.join("; "));
+
+        QStringList resultList;
+        for (const QString &key : results[i].keys())
+            resultList << QString("%1: %2").arg(key).arg(results[i][key]);
+        xlsx.write(i + 2, 4, resultList.join("; "));
+    }
+
+    xlsx.saveAs(filename);
+}
+
+void CHOOSE::on_pushButton_35_clicked()
+{
+    CALC *calcPage = new CALC;
+    calcPage->show();
+}
+double CHOOSE::calcGxx(int row, const QMap<QString, double>& data)
+{
+    double sum = 0.0;
+    QStringList aeToBeCols = {
+        "AE", "AF", "AG", "AH", "AI", "AJ", "AK", "AL", "AM", "AN",
+        "AO", "AP", "AQ", "AR", "AS", "AT", "AU", "AV", "AW", "AX",
+        "AY", "AZ", "BA", "BB", "BC", "BD", "BE"
+    };
+
+    int nextRow = row + 1;
+
+    for (const QString &col : aeToBeCols) {
+        QString key = QString("%1%2").arg(col).arg(nextRow);
+        sum += data.value(key, 0.0);
+    }
+
+    double O = data.value(QString("O%1").arg(row), 0.0);
+    double BF = data.value(QString("BF%1").arg(nextRow), 0.0);
+
+    return sqrt(sum * (O + 1.0) + BF);
+}
+double CHOOSE::calcBFxx(int row, const QMap<QString, double>& data)
+{
+    int prevRow = row - 1;
+    double bf_prev = data.value(QString("BF%1").arg(prevRow), 0.0);
+    double bf17 = data.value("BF17", 0.0);
+
+    return pow(bf_prev * bf17, 2.0);
+}
