@@ -108,60 +108,34 @@ void CHOOSE::on_pushButton_36_clicked()
     saveToExcel("process_results.xlsx");
 }
 // -----------------------------------------------------------------------------
-// 只导出：序号、工序名称，以及 “固定误差名称 : G 值” 列
-void CHOOSE::saveToExcel(const QString &file)
+// 名称固定表
+static const QStringList kNames = {
+    u8"同轴度",u8"半径波动",u8"圆柱度",u8"平面度",u8"垂直度",
+    u8"轮廓度",u8"椭圆度",u8"平行度",u8"齿形"
+};
+
+void CHOOSE::saveToExcel(const QString& file)
 {
-    // 固定的 10 个标签，对应 G19,G21,…,G35，G37
-    static const QStringList kLabels = {
-        QStringLiteral("圆度"),
-        QStringLiteral("同轴度"),
-        QStringLiteral("半径波动"),
-        QStringLiteral("圆柱度"),
-        QStringLiteral("平面度"),
-        QStringLiteral("垂直度"),
-        QStringLiteral("轮廓度"),
-        QStringLiteral("椭圆度"),
-        QStringLiteral("平行度"),
-        QStringLiteral("齿形")
-        // 如需第 10 行 E37/G37，在此再写一个字符串
-    };
-
-    const QStringList gKeys = { "G19","G21","G23","G25","G27",
-                                "G29","G31","G33","G35","G37" };   // 与标签一一对应
-
     QXlsx::Document xlsx;
-    xlsx.write(1,1,"序号");
-    xlsx.write(1,2,"工序名称");
-    xlsx.write(1,3,"误差名称 : G 值 (μm)");
+    xlsx.write(1,1,"序号"); xlsx.write(1,2,"工序名称");
+    for(int i=0;i<kNames.size();++i) xlsx.write(1,3+i,kNames[i]);
 
-    for (int i = 0; i < processEntries.size(); ++i) {
-        const auto &pe = processEntries[i];
-        xlsx.write(i+2, 1, pe.number);
-        xlsx.write(i+2, 2, pe.name);
-
-        QStringList pairs;
-        for (int k = 0; k < gKeys.size(); ++k) {
-            const QString &g = gKeys[k];
-            const QString &label = kLabels[k];          // 固定名称
-
-            QString gVal = pe.calculatedData.contains(g)
-                         ? QString::number(pe.calculatedData.value(g))
-                         : "N/A";
-
-            pairs << QString("%1:%2").arg(label, gVal);
+    for(int i=0;i<processEntries.size();++i){
+        const auto& pe=processEntries[i];
+        xlsx.write(i+2,1,pe.number);
+        xlsx.write(i+2,2,pe.name);
+        for(int j=0;j<kNames.size();++j){
+            int row = 19 + j*2;
+            xlsx.write(i+2,3+j,pe.calculatedData.value("G"+QString::number(row)));
         }
-        xlsx.write(i+2, 3, pairs.join("; "));
     }
     xlsx.saveAs(file);
 
-    // 弹窗并可打开文件夹
-    if (QMessageBox::question(this, tr("导出完成"),
-        tr("已导出到:\n%1\n\n现在打开所在文件夹？")
-            .arg(QDir::toNativeSeparators(file)),
-        QMessageBox::Yes | QMessageBox::No) == QMessageBox::Yes)
+    // 弹窗询问
+    if(QMessageBox::question(this,u8"导出完成",u8"已保存到 "+file+
+                             u8"\n现在打开所在文件夹？")==QMessageBox::Yes)
     {
-        QDesktopServices::openUrl(
-            QUrl::fromLocalFile(QFileInfo(file).absolutePath()));
+        QDesktopServices::openUrl(QUrl::fromLocalFile(QFileInfo(file).absolutePath()));
     }
 }
 // -----------------------------------------------------------------------------
