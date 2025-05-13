@@ -1,0 +1,9 @@
+#ifndef PROCESS_CALC_H
+#define PROCESS_CALC_H
+
+:contentReference[oaicite:2]{index=2}t17(const QMap<QString,double>& d, const QString& col);   // AE..BE AZ BA BB
+double BF_odd (int row, const QMap<QString,double>& d);               // 19,21,…
+double BF_even(int row, const QMap<QString,double>& d,
+               bool hasPrev, const QMap<QString,double>& prev);       // 20,22,…
+double G_odd  (int row, const QMap<QString,double>& d);               // 19,21,…
+#endif

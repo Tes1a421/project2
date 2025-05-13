@@ -16,11 +16,12 @@ class INPUT : public QWidget
 public:
     explicit INPUT(QWidget *parent = nullptr);
     ~INPUT();
-    void setPreviousResults(const QMap<QString, double> &lastCalculatedData);
+    void setPreviousResults(const QMap<QString,double>& d);
     QMap<QString, double> getData();        //获取数据
     void displayResults(const QMap<QString, double>& results);
+    QMap<QString, double> calculateData(const QMap<QString, double>& inputData);
 signals:
-    void dataEntered(QMap<QString, double> data);   //信号：数据输入完成
+    void dataEntered(QMap<QString, double> data);   //信号：数据输入完成 
 private slots:
     void on_concernButtom_clicked();
 
@@ -28,6 +29,9 @@ private slots:
 
 private:
     Ui::INPUT *ui;
+private:
+    QMap<QString, double> previousResults;
+
 };
 
 #endif // INPUT_H

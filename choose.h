@@ -3,44 +3,39 @@
 
 #include <QDialog>
 #include <QMap>
-#include <QListWidgetItem>
+#include <QString>
 
-namespace Ui {
-class CHOOSE;
-}
+QT_BEGIN_NAMESPACE
+namespace Ui { class CHOOSE; }
+QT_END_NAMESPACE
 
 class CHOOSE : public QDialog
 {
     Q_OBJECT
-
 public:
     explicit CHOOSE(QWidget *parent = nullptr);
     ~CHOOSE();
 
+    // 对外统一计算接口（供 INPUT 等调用）
+    QMap<QString,double> calculateData(const QMap<QString,double>& mergedInputs);
+
 private slots:
-    void onProcessButtonClicked();  // 所有工序按钮共用
-
-    void receivedata(const QMap<QString, double> &data, int index);
-
+    void onProcessButtonClicked();
     void on_deleteButton_clicked();
-
-    void on_pushButton_36_clicked();  // 处理并保存Excel
-
     void on_pushButton_35_clicked();
+    void on_pushButton_36_clicked();
 
 private:
-    Ui::CHOOSE *ui;
-    QList<QMap<QString, double>> storedData;
-    QList<QMap<QString, double>> processedData;
-    int currentProcessNumber = 10;
-    double calcBFxx(int row, const QMap<QString, double>& data);
-    QList<QPair<QString, int>> itemNamesAndIndexes;
-    QMap<QString, double> calculateData(const QMap<QString, double> &inputData);
-    double calcBF20(const QMap<QString, double>& data, double BF19, double BF17, double previousG19);
     void addProcess(const QString &name);
-    void saveToExcel(const QString &filename);
+    void receivedata(const QMap<QString,double>& data,int index);
     void updateProcessListDisplay();
-    double calcGxx(int row, const QMap<QString, double>& data);
+    void saveToExcel(const QString &file);
+
+    // 包装 util 函数（只有一份声明，避免重复）
+    double calcGxx(int oddRow,const QMap<QString,double>& data);
+    double calcBFxx(int evenRow,const QMap<QString,double>& data);
+
+    Ui::CHOOSE *ui;
 };
 
 #endif // CHOOSE_H

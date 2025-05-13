@@ -2,6 +2,7 @@
 #include "input.h"
 #include "ui_input.h"
 #include "shareddata.h"
+#include "choose.h"
 
 INPUT::INPUT(QWidget *parent) :
     QWidget(parent),
@@ -390,45 +391,28 @@ INPUT::~INPUT()
 
 void INPUT::on_concernButtom_clicked()
 {
-//    emit dataEntered(getData()); // 发送信号，传递数据
-    QMap<QString, double> input = getData();
+    QMap<QString,double> in   = getData();      // ← 这里用 in
+    QMap<QString,double> full = in;             // ← full 从 in 拷贝
+    full.unite(previousResults);                // 合并隐式参数
 
-        // 添加输入数据
-        SharedData::instance().inputDataList.append(input);
+    SharedData::instance().inputDataList.append(in);
 
-        // 示例：计算 C9 + D9 + E9
-        double sum = input["C9"] + input["D9"] + input["E9"];
-        QMap<QString, double> calc;
-        calc["总和"] = sum;
+    CHOOSE tmp;
+    QMap<QString,double> calc = tmp.calculateData(full);
+    SharedData::instance().calculatedResultList.append(calc);
 
-        // 存入计算结果
-        SharedData::instance().calculatedResultList.append(calc);
-
-        // 由主界面添加工序编号与名称（此处不负责）
-    close(); // 关闭窗口
+    emit dataEntered(in);
+    //close();
 }
 
-void INPUT::setPreviousResults(const QMap<QString, double> &lastCalculatedData)
-{
-    // 将前一个工序的计算结果显示在界面上，或作为计算依据
-    double previousG19 = lastCalculatedData.value("G19", 0.0);
-    ui->previousG19Label->setText(QString::number(previousG19));
-}
+ void INPUT::setPreviousResults(const QMap<QString,double>& d){ previousResults=d; }
+
 
 void INPUT::displayResults(const QMap<QString, double>& results)
 {
     for (int row = 19; row <= 37; row += 2) {
         QString key = QString("G%1").arg(row);  // G19, G21, ..., G37
         double value = results.value(key, 0.0); // 从结果中取出对应数值
-
-        // 假设你的控件是 QLineEdit，名字就是 G19, G21 ...
-//        QLineEdit* line = this->findChild<QLineEdit*>(key);
-//        if (line) {
-//            line->setText(QString::number(value, 'f', 4));
-//            line->setReadOnly(true);  // 不允许用户修改
-//        }
-
-        // 或者如果是 QTextBrowser，你用这段替代
 
         QTextBrowser* browser = this->findChild<QTextBrowser*>(key);
         if (browser) {
@@ -438,16 +422,15 @@ void INPUT::displayResults(const QMap<QString, double>& results)
     }
 }
 
-
+QMap<QString, double> INPUT::calculateData(const QMap<QString, double>& inputData)
+{
+    // 可选：委托 choose.cpp 中的 CHOOSE::calculateData，如果合理
+    CHOOSE temp;
+    return temp.calculateData(inputData);
+}
 void INPUT::on_cancelButton_clicked()
 {
     close();
 }
-void INPUT::displayResults(const QMap<QString, double>& results)
-{
-    QTextBrowser* box = this->findChild<QTextBrowser*>(key);
-    if (box) {
-        box->setText(QString::number(value, 'f', 4));
-    }
+//
 
-}

@@ -18,22 +18,21 @@ DEFINES += QT_DEPRECATED_WARNINGS
 
 SOURCES += \
     caculate.cpp \
-    calc.cpp \
     choose.cpp \
     input.cpp \
     main.cpp \
+    process_calc.cpp \
     widget.cpp
 
 HEADERS += \
     caculate.h \
-    calc.h \
     choose.h \
     input.h \
+    process_calc.h \
     shareddata.h \
     widget.h
 
 FORMS += \
-    calc.ui \
     choose.ui \
     input.ui \
     widget.ui
