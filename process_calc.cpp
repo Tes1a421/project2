@@ -1,69 +1,66 @@
-#include ":contentReference[oaicite:3]{index=3}==========================
-double weight17(const QMap<QStri:contentReference[oaicite:4]{index=4}t QString& col)
-{
-    // AE17-BE17  ← C9-AC9
-    st:contentReference[oaicite:5]{index=5}","E","F","G","H","I","J","K","L","M",
-                                 :contentReference[oaicite:6]{index=6}
-                                    "X","Y","Z","AA","AB","AC"};
-    static const QStringList tgt = {"AE","AF","AG","AH","AI","AJ","AK","AL","AM",
-                                 :contentReference[oaicite:7]{index=7}                "AW","AX","AY","AZ","BA","BB","BC","BD","BE"};
-    int k = tgt.indexOf(col);
-    if(k>=0 && k<src.size()) return d.value(src[k]+"9",0.0);
+#include "process_calc.h"
+#include <QtMath>
+#include <QDebug>
 
-    double X7 = d.value("X7",0.0), AD = d.value("AD19",0.0);
-    if(col=="AZ") return X7*AD*d.value("AA19")/1000.0;
-    if(col=="BA") return X7*d.value("AB19")*AD/1000.0;
-    if(col=="BB") return X7*AD*d.value("AC19")/1000.0;
-:contentReference[oaicite:8]{index=8}=
-static double f_sub(double u,double r){
-    return r*0.0 + (1-r)*(u*std::sqrt(2.0)/2.0 + (1-u)*1.0);
-}
-double BF_odd(int row,const QMap<QString,double>& d)
-{
-    auto v=[&](QString p){return d.value(p+QString::number(row),0.0);};
-    double I=v("I"), L=v("L"), O=v("O"), R=v("R"), U=v("U");
-    double Uprev=d.value("U"+QString::number(row-9),0.0);   // U10/U12/…
+/* ------------- 快捷访问 ------------- */
+static inline double v(const QMap<QString,double>& m,
+                       const QString& k,double def=0.0)
+{ return m.value(k,def); }
 
-    double t1 = I*L*          f_sub(U,R);
-    double t2 = (1-I*L)*( I*U*f_sub(1.0,R)               // R*0+(1-R)*1
-                        + (1-I*U)*( U*0+(1-U)*f_sub(1.0,R) ) );
-    return t1+t2+O;
-}
-
-// === BF 偶数行 20/22/… =======================================================
-double BF_even(int row,const QMap<QString,double>& d,
-               bool hasPrev,const QMap<QString,double>& prev)
+/* ------------- I/L/R/U… → AE…BE ------------- */
+void buildProcessWeights(int oddRow,
+                         QMap<QString,double>& all,
+                         const QMap<QString,double>& in)
 {
-    double bfOdd = d.value("BF"+QString::number(row-1),0.0);
-    double gRef  = hasPrev
-                 ? prev.value("G"+QString::number(row-1),0.0)   // 上一工序 Godd
-                 : d.value ("G"+QString::number(row-1),0.0);    // 本工序 Godd
-    return std::pow(bfOdd*gRef,2.0);
+    /* ===（1）收集本行开关量 === */
+    auto key=[&](QString col){return col+QString::number(oddRow);};
+    double I=v(in,key("I")), L=v(in,key("L"));
+    double R=v(in,key("R")), U=v(in,key("U"));
+
+    /* ===（2）示范只算 AE，其余 AF…BE 请照公式继续写 === */
+    double AE = I*L*( R*0 + (1-R)*(U*qSqrt(2.)/2. + (1-U)*1.) )
+              + (1-I*L)*( I*U*(R*0+(1-R)*1.)
+              + (1-I*U)*( U*0+(1-U)*(R*0+(1-R)*1.) )
+              + v(in,key("O")) );  // O19,O21… 也在 in 里
+    //double AF =(I*L*(ABS(R-U)*1)+(1-I*L)*(I*0+(1-I)*(ABS(R-U)*1+(1-ABS(R-U))*0))+O)*COS(Y/180*PI())
+    //double AG =
+    all[QString("AE%1").arg(oddRow+1)] = AE;
+
+    /* ……其余 AF~BE 依次写进去 …… */
 }
 
-// === G 奇数行 19/21/…  (闭式解) =============================================
-double G_odd(int row,const QMap<QString,double>& d)
+/* ------------- 合成不确定度 G19,G21… ------------- */
+double calcGxx(int oddRow,const QMap<QString,double>& allIn)
 {
-    static const QStringList err = {"C","D","E","F","G","H","I","J","K","L","M",
-                                    "N","O","P","Q","R","S","T","U","V","W",
-                                    "X","Y","Z","AA","AB","AC"};
-    static const QStringList w17 = {"AE","AF","AG","AH","AI","AJ","AK","AL","AM",
-                                    "AN","AO","AP","AQ","AR","AS","AT","AU","AV",
-                                    "AW","AX","AY","AZ","BA","BB","BC","BD","BE"};
-    double sum = 0.0;
-    for(int i=0;i<err.size();++i){
-        double s = d.value(err[i]+"9",0.0);
-        double w = d.value(w17[i]+QString::number(row+1),0.0);   // AE20..BE20
-        sum += s*w;
+    /* 拷贝一份可写 map，如有缺失 AE…BE 就自动生成 */
+    QMap<QString,double> all = allIn;
+    if(!all.contains(QString("AE%1").arg(oddRow+1)))
+        buildProcessWeights(oddRow,all,allIn);
+
+    double sum=0.;
+    QStringList cols={"AE","AF","AG","AH","AI","AJ","AK","AL","AM","AN",
+                      "AO","AP","AQ","AR","AS","AT","AU","AV","AW","AX",
+                      "AY","AZ","BA","BB","BC","BD","BE"};
+    for(const auto& c:cols)
+        sum+=v(all,QString("%1%2").arg(c).arg(oddRow+1));
+
+    double O = v(all,QString("O%1").arg(oddRow));
+    double BF= v(all,QString("BF%1").arg(oddRow+1));
+
+    return qSqrt(sum*(O+1.)+BF);
+}
+
+/* ------------- BF20,BF22… ------------- */
+double calcBFxx(int evenRow,const QMap<QString,double>& all)
+{
+    switch(evenRow){
+    case 20:{          // BF20 = (BF19*工序1!G19)^2
+        return qPow( v(all,"BF19") * v(all,"G19"), 2.0 );
     }
-    // 额外三列
-    for(auto col: {"AZ","BA","BB"}){
-        double s = d.value("X9",0.0);
-        double w = d.value(QString(col)+QString::number(row+1),0.0);
-        sum += s*w;
+    case 22:{          // BF22 = 工序1!G21^2 * BF21^2
+        return qPow( v(all,"G21"),2.0 ) * qPow( v(all,"BF21"),2.0 );
     }
-    double A      = sum * ( d.value("O"+QString::number(row),0.0) + 1.0 );
-    double bfOdd  = d.value("BF"+QString::number(row),0.0);
-    double denom  = 1.0 - bfOdd*bfOdd;
-    return denom<=0 ? 0.0 : std::sqrt( A / denom );
+    /* 继续补 24/26… */
+    default:return 0.;
+    }
 }

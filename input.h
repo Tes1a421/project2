@@ -27,6 +27,9 @@ private slots:
 
     void on_cancelButton_clicked();
 
+    void syncX7ToXYZ9(const QString& txt);
+
+
 private:
     Ui::INPUT *ui;
 private:

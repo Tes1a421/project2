@@ -3,6 +3,7 @@
 #include "ui_input.h"
 #include "shareddata.h"
 #include "choose.h"
+#include <QDebug>
 
 INPUT::INPUT(QWidget *parent) :
     QWidget(parent),
@@ -10,7 +11,8 @@ INPUT::INPUT(QWidget *parent) :
 {
     ui->setupUi(this);
 
-
+    connect(ui->X7, &QLineEdit::textChanged, this,  &INPUT::syncX7ToXYZ9);
+    syncX7ToXYZ9(ui->X7->text());
     // 设置 C9 - AC9 初始值为 5
     QStringList c9_ac9 = {"C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N", "O", "P", "Q", "R", "S", "T", "U", "V", "W", "X", "Y", "Z", "AA", "AB", "AC"};
     for (const QString &col : c9_ac9) {
@@ -37,13 +39,6 @@ INPUT::INPUT(QWidget *parent) :
         "AY", "AZ", "BA", "BB", "BC", "BD", "BE"
     };
 
-    for (int row = 20; row <= 36; row += 2) {
-        for (const QString &col : aeToBeCols) {
-            QString name = QString("%1%2").arg(col).arg(row);
-            QLineEdit *edit = this->findChild<QLineEdit*>(name);
-            if (edit) edit->setText("5");
-        }
-    }
 
     ui->E4->setText("22");
     ui->X7->setText("1");
@@ -179,6 +174,7 @@ INPUT::INPUT(QWidget *parent) :
     ui->Z33->setText("0");
     ui->Z35->setText("0");
     ui->Z37->setText("0");
+
 }
 // 获取数据的方法
 QMap<QString, double> INPUT::getData()
@@ -243,9 +239,11 @@ QMap<QString, double> INPUT::getData()
     data["U9"] = ui->U9->text().toDouble();
     data["V9"] = ui->V9->text().toDouble();
     data["W9"] = ui->W9->text().toDouble();
-    data["X9"] = ui->X9->text().toDouble();
-    data["Y9"] = ui->Y9->text().toDouble();
-    data["Z9"] = ui->Z9->text().toDouble();
+    double x7 = ui->X7->text().toDouble();
+    data["X9"] = x7;
+    data["Y9"] = x7;
+    data["Z9"] = x7;
+
     data["AA9"] = ui->AA9->text().toDouble();
     data["AB9"] = ui->AB9->text().toDouble();
     data["AC9"] = ui->AC9->text().toDouble();
@@ -391,21 +389,24 @@ INPUT::~INPUT()
 
 void INPUT::on_concernButtom_clicked()
 {
-    QMap<QString,double> in   = getData();      // ← 这里用 in
-    QMap<QString,double> full = in;             // ← full 从 in 拷贝
-    full.unite(previousResults);                // 合并隐式参数
+    QMap<QString,double> in   = getData();   // 用户实际输入
+    QMap<QString,double> full = in;          // 拓展为计算全集
+    full.unite(previousResults);
 
     SharedData::instance().inputDataList.append(in);
 
-    CHOOSE tmp;
-    QMap<QString,double> calc = tmp.calculateData(full);
-    SharedData::instance().calculatedResultList.append(calc);
+    /* 直接用静态函数，不必 new CHOOSE tmp; */
+    QMap<QString,double> res = CHOOSE::calculateDataStatic(full);
+
+    SharedData::instance().calculatedResultList.append(res);
+    displayResults(res);        // 刷 G19-G37 到 QTextBrowser
 
     emit dataEntered(in);
-    //close();
+    //close();                    // 如要停在当前页可去掉
 }
 
- void INPUT::setPreviousResults(const QMap<QString,double>& d){ previousResults=d; }
+
+void INPUT::setPreviousResults(const QMap<QString,double>& d){ previousResults=d; }
 
 
 void INPUT::displayResults(const QMap<QString, double>& results)
@@ -431,6 +432,13 @@ QMap<QString, double> INPUT::calculateData(const QMap<QString, double>& inputDat
 void INPUT::on_cancelButton_clicked()
 {
     close();
+}
+
+void INPUT::syncX7ToXYZ9(const QString& txt)
+{
+    ui->X9->setText(txt);
+    ui->Y9->setText(txt);
+    ui->Z9->setText(txt);
 }
 //
 

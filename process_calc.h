@@ -1,9 +1,15 @@
 #ifndef PROCESS_CALC_H
 #define PROCESS_CALC_H
 
-:contentReference[oaicite:2]{index=2}t17(const QMap<QString,double>& d, const QString& col);   // AE..BE AZ BA BB
-double BF_odd (int row, const QMap<QString,double>& d);               // 19,21,…
-double BF_even(int row, const QMap<QString,double>& d,
-               bool hasPrev, const QMap<QString,double>& prev);       // 20,22,…
-double G_odd  (int row, const QMap<QString,double>& d);               // 19,21,…
+#include <QMap>
+#include <QString>
+
+/* ========= 公开 API ========= */
+double calcGxx (int oddRow , const QMap<QString,double>& all);   // G19,G21…
+double calcBFxx(int evenRow, const QMap<QString,double>& all);   // BF20,BF22…
+
+/* ========= 内部辅助 ========= */
+void buildProcessWeights(int oddRow,
+                         QMap<QString,double>& all,      // 放输出（AE…BE）
+                         const QMap<QString,double>& in);// 用户手输量
 #endif
