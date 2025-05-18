@@ -74,8 +74,13 @@ void CHOOSE::receivedata(const QMap<QString,double> &data,int idx)
 
     g_processes[idx].inputData = data;
 
-    QMap<QString,double> merged = data;
-    if (idx>0) merged.unite(g_processes[idx-1].calculatedData);   // 耦合
+    QMap<QString, double> merged;
+    if (idx > 0) {
+        const auto& prevData = g_processes[idx - 1].calculatedData;
+        for (auto it = prevData.constBegin(); it != prevData.constEnd(); ++it) {
+            merged.insert(it.key(), it.value());
+        }
+    }
 
     g_processes[idx].calculatedData = calculateData(merged);
 
@@ -101,7 +106,10 @@ QMap<QString,double> CHOOSE::calculateData(const QMap<QString,double> &in)
         res[QString("BF%1").arg(r)] = calcBFxx(r, in);
 
     // 合并一下，给 G 使用
-    QMap<QString,double> mix = in;  mix.unite(res);
+    QMap<QString, double> mix = in;
+    for (auto it = res.constBegin(); it != res.constEnd(); ++it) {
+        mix.insert(it.key(), it.value());
+    }
 
     for (int r=19; r<=37; r+=2)
         res[QString("G%1").arg(r)] = calcGxx(r, mix);

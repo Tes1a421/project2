@@ -391,7 +391,9 @@ void INPUT::on_concernButtom_clicked()
 {
     QMap<QString,double> in   = getData();   // 用户实际输入
     QMap<QString,double> full = in;          // 拓展为计算全集
-    full.unite(previousResults);
+    for (auto it = previousResults.constBegin(); it != previousResults.constEnd(); ++it) {
+        full.insert(it.key(), it.value());
+    }
 
     SharedData::instance().inputDataList.append(in);
 
